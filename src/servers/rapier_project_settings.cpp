@@ -6,7 +6,7 @@ using namespace godot;
 
 constexpr char RUN_ON_SEPARATE_THREAD[] = "physics/2d/run_on_separate_thread";
 constexpr char MAX_THREADS[] = "threading/worker_pool/max_threads";
-constexpr char SCALING_FACTOR[] = "physics/2d/scaling_factor";
+constexpr char SCALING_FACTOR[] = "physics/rapier_2d/scaling_factor";
 constexpr char SOLVER_MIN_CCD_DT[] = "physics/rapier_2d/solver/min_ccd_dt";
 constexpr char SOLVER_ERP[] = "physics/rapier_2d/solver/erp";
 constexpr char SOLVER_DAMPING_RATIO[] = "physics/rapier_2d/solver/damping_ratio";
