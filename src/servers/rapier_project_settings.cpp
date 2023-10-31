@@ -6,6 +6,7 @@ using namespace godot;
 
 constexpr char RUN_ON_SEPARATE_THREAD[] = "physics/2d/run_on_separate_thread";
 constexpr char MAX_THREADS[] = "threading/worker_pool/max_threads";
+constexpr char SCALING_FACTOR[] = "physics/2d/scaling_factor";
 constexpr char SOLVER_MIN_CCD_DT[] = "physics/rapier_2d/solver/min_ccd_dt";
 constexpr char SOLVER_ERP[] = "physics/rapier_2d/solver/erp";
 constexpr char SOLVER_DAMPING_RATIO[] = "physics/rapier_2d/solver/damping_ratio";
@@ -76,6 +77,7 @@ void register_setting_ranged(
 }
 
 void RapierProjectSettings::register_settings() {
+	register_setting_ranged(SCALING_FACTOR, 100.0f, U"1,100,or_greater");
 	register_setting_ranged(SOLVER_MIN_CCD_DT, 1.0 / 60.0 / 100.0, U"0.0000001,1,0.0000001,suffix:1/s");
 	register_setting_ranged(SOLVER_ERP, 0.85, U"0.00001,1,0.00001,suffix:%");
 	register_setting_ranged(SOLVER_DAMPING_RATIO, 0.35, U"0.00001,1,0.00001,suffix:%");
@@ -112,6 +114,9 @@ int RapierProjectSettings::get_max_threads() {
 	return get_setting<int>(MAX_THREADS);
 }
 
+double RapierProjectSettings::get_scaling_factor() {
+	return get_setting<double>(SCALING_FACTOR);
+}
 double RapierProjectSettings::get_solver_min_ccd_dt() {
 	return get_setting<double>(SOLVER_MIN_CCD_DT);
 }

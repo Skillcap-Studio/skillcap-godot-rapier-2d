@@ -8,6 +8,7 @@ public:
 
 	static bool should_run_on_separate_thread();
 	static int get_max_threads();
+	static double get_scaling_factor();
 	static double get_solver_min_ccd_dt();
 	static double get_solver_erp();
 	static double get_solver_damping_ratio();

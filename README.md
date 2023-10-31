@@ -47,6 +47,7 @@ A 2d [rapier](https://github.com/dimforge/rapier) physics server for [Godot Engi
 - Linux (x86_64)
 - Android (x86_64, arm64)
 - iOS (arm64) without signing
+- Web (wasm32)
 
 # Installation
 
