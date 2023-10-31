@@ -1,6 +1,8 @@
+use std::ops::Mul;
+
 use rapier2d::parry;
 use rapier2d::parry::query::NonlinearRigidMotion;
-use parry::query::{DefaultQueryDispatcher};
+use parry::query::DefaultQueryDispatcher;
 use rapier2d::parry::query::QueryDispatcher;
 use rapier2d::prelude::*;
 use crate::handle::*;
@@ -105,7 +107,7 @@ pub extern "C" fn intersect_ray(world_handle : Handle, from : &Vector, dir : &Ve
     let mut physics_engine = SINGLETON.lock().unwrap();
 	let physics_world = physics_engine.get_world(world_handle);
 
-    let ray = Ray::new(point![from.x, from.y], vector![dir.x, dir.y]);
+    let ray = Ray::new(point![from.x, from.y] * INV_SCALING_FACTOR.load(), vector![dir.x, dir.y]);
     let solid = true;
     let mut filter = QueryFilter::new();
 
@@ -133,7 +135,7 @@ pub extern "C" fn intersect_ray(world_handle : Handle, from : &Vector, dir : &Ve
             if hit_from_inside || intersection.toi != 0.0 {
                 result = true;
 
-                let hit_point = ray.point_at(intersection.toi);
+                let hit_point = ray.point_at(intersection.toi) * SCALING_FACTOR.load();
                 let hit_normal = intersection.normal;
                 hit_info.position = Vector {
                     x: hit_point.x,
@@ -159,7 +161,7 @@ pub extern "C" fn intersect_point(world_handle : Handle, position : &Vector,  co
     let mut physics_engine = SINGLETON.lock().unwrap();
 	let physics_world = physics_engine.get_world(world_handle);
 
-    let point = Point::new(position.x, position.y);
+    let point = Point::new(position.x, position.y) * INV_SCALING_FACTOR.load();
     let mut filter = QueryFilter::new();
 
     if !collide_with_body {
@@ -213,10 +215,10 @@ pub extern "C" fn shape_collide(motion1 : &Vector, shape_info1: ShapeInfo, motio
         shared_shape2 = new_shape;
     }
     
-    let shape_vel1 = vector![motion1.x, motion1.y];
-    let shape_vel2 = vector![motion2.x, motion2.y];
-    let shape_transform1 = Isometry::new(vector![shape_info1.position.x, shape_info1.position.y], shape_info1.rotation);
-    let shape_transform2 = Isometry::new(vector![shape_info2.position.x, shape_info2.position.y], shape_info2.rotation);
+    let shape_vel1 = vector![motion1.x, motion1.y] * INV_SCALING_FACTOR.load();
+    let shape_vel2 = vector![motion2.x, motion2.y] * INV_SCALING_FACTOR.load();
+    let shape_transform1 = Isometry::new(vector![shape_info1.position.x, shape_info1.position.y] * INV_SCALING_FACTOR.load(), shape_info1.rotation);
+    let shape_transform2 = Isometry::new(vector![shape_info2.position.x, shape_info2.position.y] * INV_SCALING_FACTOR.load(), shape_info2.rotation);
     let shape_nonlin1 = NonlinearRigidMotion::new(shape_transform1, Point::default(), shape_vel1, 0.0);
     let shape_nonlin2 = NonlinearRigidMotion::new(shape_transform2, Point::default(), shape_vel2, 0.0);
     let mut result = ShapeCastResult::new();
@@ -226,8 +228,10 @@ pub extern "C" fn shape_collide(motion1 : &Vector, shape_info1: ShapeInfo, motio
     if let Some(hit) = toi_result.unwrap() {
         result.collided = true;
         result.toi = hit.toi;
-        result.witness1 = Vector{ x: hit.witness1.x, y: hit.witness1.y };
-        result.witness2 = Vector{ x: hit.witness2.x, y: hit.witness2.y };
+        let witness1 = hit.witness1 * SCALING_FACTOR.load();
+        let witness2 = hit.witness2 * SCALING_FACTOR.load();
+        result.witness1 = Vector{ x: witness1.x, y: witness1.y };
+        result.witness2 = Vector{ x: witness2.x, y: witness2.y };
         result.normal1 = Vector{ x: hit.normal1.x, y: hit.normal1.y };
         result.normal2 = Vector{ x: hit.normal2.x, y: hit.normal2.y };
         return result;
@@ -246,8 +250,8 @@ pub extern "C" fn shape_casting(world_handle : Handle, motion : &Vector, shape_i
 
 	let physics_world = physics_engine.get_world(world_handle);
     
-    let shape_vel = vector![motion.x, motion.y];
-    let shape_transform = Isometry::new(vector![shape_info.position.x, shape_info.position.y], shape_info.rotation);
+    let shape_vel = vector![motion.x, motion.y] * INV_SCALING_FACTOR.load();
+    let shape_transform = Isometry::new(vector![shape_info.position.x, shape_info.position.y] * INV_SCALING_FACTOR.load(), shape_info.rotation);
     
     let mut filter = QueryFilter::new();
 
@@ -274,8 +278,10 @@ pub extern "C" fn shape_casting(world_handle : Handle, motion : &Vector, shape_i
     ) {
         result.collided = true;
         result.toi = hit.toi;
-        result.witness1 = Vector{ x: hit.witness1.x, y: hit.witness1.y };
-        result.witness2 = Vector{ x: hit.witness2.x, y: hit.witness2.y };
+        let witness1 = hit.witness1 * SCALING_FACTOR.load();
+        let witness2 = hit.witness2 * SCALING_FACTOR.load();
+        result.witness1 = Vector{ x: witness1.x, y: witness1.y };
+        result.witness2 = Vector{ x: witness2.x, y: witness2.y };
         result.normal1 = Vector{ x: hit.normal1.x, y: hit.normal1.y };
         result.normal2 = Vector{ x: hit.normal2.x, y: hit.normal2.y };
         result.collider = collider_handle_to_handle(collider_handle);
@@ -295,7 +301,7 @@ pub extern "C" fn intersect_shape(world_handle : Handle, shape_info: ShapeInfo, 
     }
 
 	let physics_world = physics_engine.get_world(world_handle);
-    let shape_transform = Isometry::new(vector![shape_info.position.x, shape_info.position.y], shape_info.rotation);
+    let shape_transform = Isometry::new(vector![shape_info.position.x, shape_info.position.y] * INV_SCALING_FACTOR.load(), shape_info.rotation);
     
     let mut filter = QueryFilter::new();
 
@@ -346,8 +352,8 @@ pub extern "C" fn intersect_aabb(world_handle : Handle, aabb_min : &Vector, aabb
 	let physics_world = physics_engine.get_world(world_handle);
     
     // let aabb_transform = Isometry::new(vector![position.x, position.y], rotation);
-    let aabb_min_point = Point::new(aabb_min.x, aabb_min.y);
-    let aabb_max_point = Point::new(aabb_max.x, aabb_max.y);
+    let aabb_min_point = Point::new(aabb_min.x, aabb_min.y) * INV_SCALING_FACTOR.load();
+    let aabb_max_point = Point::new(aabb_max.x, aabb_max.y) * INV_SCALING_FACTOR.load();
     
     // let transformed_aabb_min = aabb_transform * aabb_min_point;
     // let transformed_aabb_max = aabb_transform * aabb_max_point;
@@ -405,7 +411,7 @@ pub extern "C" fn shapes_contact(world_handle : Handle, shape_info1 : ShapeInfo,
     
     let physics_world = physics_engine.get_world(world_handle);
 
-    let prediction = Real::max(physics_world.solver_prediction_distance, margin);
+    let prediction = Real::max(physics_world.solver_prediction_distance, margin * INV_SCALING_FACTOR.load());
 
     let mut shared_shape1 = physics_engine.get_shape(shape_info1.handle).clone();
     if let Some(new_shape) = scale_shape(&shared_shape1, &shape_info1.scale) {
@@ -416,8 +422,8 @@ pub extern "C" fn shapes_contact(world_handle : Handle, shape_info1 : ShapeInfo,
         shared_shape2 = new_shape;
     }
     
-    let shape_transform1 = Isometry::new(vector![shape_info1.position.x, shape_info1.position.y], shape_info1.rotation);
-    let shape_transform2 = Isometry::new(vector![shape_info2.position.x, shape_info2.position.y], shape_info2.rotation);
+    let shape_transform1 = Isometry::new(vector![shape_info1.position.x, shape_info1.position.y] * INV_SCALING_FACTOR.load(), shape_info1.rotation);
+    let shape_transform2 = Isometry::new(vector![shape_info2.position.x, shape_info2.position.y] * INV_SCALING_FACTOR.load(), shape_info2.rotation);
     
     let mut result = ContactResult::new();
     if let Ok(Some(contact)) = parry::query::contact(
@@ -425,15 +431,17 @@ pub extern "C" fn shapes_contact(world_handle : Handle, shape_info1 : ShapeInfo,
     ) {
         // the distance is negative if there is intersection
         // and positive if the objects are separated by distance less than margin
-        result.distance = contact.dist;
+        result.distance = contact.dist * SCALING_FACTOR.load();
         if contact.dist <= 0.0 {
             result.within_margin = false;
         } else {
             result.within_margin = true;
         }
         result.collided = true;
-        result.point1 = Vector{ x: contact.point1.x + prediction * contact.normal1.x, y: contact.point1.y + prediction * contact.normal1.y };
-        result.point2 = Vector{ x: contact.point2.x, y: contact.point2.y };
+        let point1 = (contact.point1 + contact.normal1.mul(prediction)) * SCALING_FACTOR.load();
+        let point2 = contact.point2 * SCALING_FACTOR.load();
+        result.point1 = Vector{ x: point1.x, y: point1.y };
+        result.point2 = Vector{ x: point2.x, y: point2.y };
         result.normal1 = Vector{ x: contact.normal1.x, y: contact.normal1.y };
         result.normal2 = Vector{ x: contact.normal2.x, y: contact.normal2.y };
         return result;

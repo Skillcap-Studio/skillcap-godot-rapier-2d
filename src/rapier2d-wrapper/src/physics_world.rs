@@ -2,12 +2,69 @@ use rapier2d::crossbeam;
 use rapier2d::data::Arena;
 use rapier2d::prelude::*;
 use std::sync::Mutex;
+#[cfg(feature = "single")]
+use std::sync::atomic::AtomicU32;
+#[cfg(feature = "double")]
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use lazy_static::lazy_static;
 use crate::handle::*;
 use crate::user_data::*;
 use crate::settings::*;
 use crate::vector::Vector;
 use crate::physics_hooks::*;
+
+// From https://github.com/rust-lang/rust/issues/72353#issuecomment-1093729062
+#[cfg(feature = "double")]
+pub struct AtomicF64 {
+    storage: AtomicU64,
+}
+#[cfg(feature = "single")]
+pub struct AtomicF32 {
+    storage: AtomicU32,
+}
+#[cfg(feature = "double")]
+impl AtomicF64 {
+    pub fn new(value: f64) -> Self {
+        let as_u64 = value.to_bits();
+        Self { storage: AtomicU64::new(as_u64) }
+    }
+    pub fn store(&self, value: f64) {
+        let as_u64 = value.to_bits();
+        self.storage.store(as_u64, Ordering::SeqCst)
+    }
+    pub fn load(&self) -> f64 {
+        let as_u64 = self.storage.load(Ordering::SeqCst);
+        f64::from_bits(as_u64)
+    }
+}
+
+#[cfg(feature = "single")]
+impl AtomicF32 {
+    pub fn new(value: f32) -> Self {
+        let as_u32 = value.to_bits();
+        Self { storage: AtomicU32::new(as_u32) }
+    }
+    pub fn store(&self, value: f32) {
+        let as_u32 = value.to_bits();
+        self.storage.store(as_u32, Ordering::SeqCst)
+    }
+    pub fn load(&self) -> f32 {
+        let as_u32 = self.storage.load(Ordering::SeqCst);
+        f32::from_bits(as_u32)
+    }
+}
+
+#[cfg(feature = "double")]
+lazy_static! {
+	pub static ref SCALING_FACTOR: AtomicF64 = AtomicF64::new(100.0);
+	pub static ref INV_SCALING_FACTOR: AtomicF32 = AtomicF32::new(1.0 / 100.0);
+}
+#[cfg(feature = "single")]
+lazy_static! {
+	pub static ref SCALING_FACTOR: AtomicF32 = AtomicF32::new(100.0);
+	pub static ref INV_SCALING_FACTOR: AtomicF32 = AtomicF32::new(1.0 / 100.0);
+}
 
 #[repr(C)]
 pub struct ActiveBodyInfo {
@@ -187,7 +244,7 @@ impl PhysicsWorld {
         integration_parameters.min_island_size = settings.min_island_size;
         integration_parameters.max_ccd_substeps = settings.max_ccd_substeps;
 
-        let gravity = vector![settings.gravity.x, settings.gravity.y];
+        let gravity = vector![settings.gravity.x, settings.gravity.y] * INV_SCALING_FACTOR.load();
 
 		let physics_hooks = PhysicsHooksCollisionFilter {
 			world_handle : self.handle,
@@ -298,10 +355,10 @@ impl PhysicsWorld {
 
 							// Read the geometric contacts.
 							for contact_point in &manifold.points {
-                                let collider_pos_1 = collider1.position() * contact_point.local_p1;
-                                let collider_pos_2 = collider2.position() * contact_point.local_p2;
-                                let point_velocity_1 = body1.velocity_at_point(&collider_pos_1);
-                                let point_velocity_2 = body2.velocity_at_point(&collider_pos_2);
+                                let collider_pos_1 = collider1.position() * contact_point.local_p1 * SCALING_FACTOR.load();
+                                let collider_pos_2 = collider2.position() * contact_point.local_p2 * SCALING_FACTOR.load();
+                                let point_velocity_1 = body1.velocity_at_point(&collider_pos_1) * SCALING_FACTOR.load();
+                                let point_velocity_2 = body2.velocity_at_point(&collider_pos_2) * SCALING_FACTOR.load();
 
                                 if swap {
                                     contact_info.local_pos_1 = Vector { x : collider_pos_2.x, y : collider_pos_2.y };
@@ -314,9 +371,9 @@ impl PhysicsWorld {
                                     contact_info.velocity_pos_1 = Vector { x : point_velocity_1.x, y : point_velocity_1.y };
                                     contact_info.velocity_pos_2 = Vector { x : point_velocity_2.x, y : point_velocity_2.y };
                                 }
-                                contact_info.distance = contact_point.dist;
-                                contact_info.impulse = contact_point.data.impulse;
-                                contact_info.tangent_impulse = contact_point.data.tangent_impulse;
+                                contact_info.distance = contact_point.dist * SCALING_FACTOR.load();
+                                contact_info.impulse = contact_point.data.impulse * SCALING_FACTOR.load();
+                                contact_info.tangent_impulse = contact_point.data.tangent_impulse * SCALING_FACTOR.load();
                                 
                                 send_contact_points = contact_callback(self.handle, &contact_info, &event_info);
 								if !send_contact_points {
@@ -540,4 +597,11 @@ pub extern "C" fn world_get_active_objects_count(world_handle : Handle) -> usize
 	let mut physics_engine = SINGLETON.lock().unwrap();
 	let physics_world = physics_engine.get_world(world_handle);
 	return physics_world.island_manager.active_dynamic_bodies().len();
+}
+
+
+#[no_mangle]
+pub extern "C" fn world_set_scaling_factor(scale : Real) {
+	SCALING_FACTOR.store(scale);
+	INV_SCALING_FACTOR.store(1.0 / scale);
 }

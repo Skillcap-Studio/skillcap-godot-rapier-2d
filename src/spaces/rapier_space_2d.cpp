@@ -388,6 +388,9 @@ bool RapierSpace2D::contact_point_callback(rapier2d::Handle world_handle, const 
 }
 
 void RapierSpace2D::step(real_t p_step) {
+	// set scale here for now. Would it ever change?
+	rapier2d::world_set_scaling_factor(RapierProjectSettings::get_scaling_factor());
+
 	last_step = p_step;
 	contact_debug_count = 0;
 

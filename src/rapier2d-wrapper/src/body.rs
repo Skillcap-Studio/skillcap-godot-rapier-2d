@@ -14,9 +14,9 @@ pub enum BodyType {
 
 fn set_rigid_body_properties_internal(rigid_body : &mut RigidBody, pos : &Vector, rot : Real, wake_up : bool) {
     if !rigid_body.is_kinematic() {
-        rigid_body.set_position(Isometry::new(vector![pos.x, pos.y], rot), wake_up);
+        rigid_body.set_position(Isometry::new(vector![pos.x, pos.y] * INV_SCALING_FACTOR.load(), rot), wake_up);
     } else {
-        rigid_body.set_next_kinematic_position(Isometry::new(vector![pos.x, pos.y], rot));
+        rigid_body.set_next_kinematic_position(Isometry::new(vector![pos.x, pos.y] * INV_SCALING_FACTOR.load(), rot));
     }
 }
 
@@ -43,7 +43,7 @@ pub extern "C" fn body_create(world_handle : Handle, pos : &Vector, rot : Real, 
     set_rigid_body_properties_internal(&mut rigid_body, pos, rot, true);
 	rigid_body.user_data = user_data.get_data();
     let body_handle = physics_world.rigid_body_set.insert(rigid_body);
-    return rigid_body_handle_to_handle(body_handle);
+    rigid_body_handle_to_handle(body_handle)
 }
 
 #[no_mangle]
@@ -81,8 +81,8 @@ pub extern "C" fn body_get_position(world_handle : Handle, body_handle : Handle)
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get(rigid_body_handle);
     assert!(body.is_some());
-    let body_vector = body.unwrap().translation();
-    return Vector { x : body_vector.x, y : body_vector.y };
+    let body_vector = body.unwrap().translation() * SCALING_FACTOR.load();
+    Vector { x : body_vector.x, y : body_vector.y }
 }
 
 #[no_mangle]
@@ -92,7 +92,7 @@ pub extern "C" fn body_get_angle(world_handle : Handle, body_handle : Handle) ->
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get(rigid_body_handle);
     assert!(body.is_some());
-    return body.unwrap().rotation().angle();
+    body.unwrap().rotation().angle()
 }
 
 #[no_mangle]
@@ -114,8 +114,8 @@ pub extern "C" fn body_get_linear_velocity(world_handle : Handle, body_handle : 
     let body = physics_world.rigid_body_set.get(rigid_body_handle);
     assert!(body.is_some());
     let body = body.unwrap();
-    let body_vel = body.linvel();
-    return Vector { x : body_vel.x, y : body_vel.y };
+    let body_vel = body.linvel() * SCALING_FACTOR.load();
+    Vector { x : body_vel.x, y : body_vel.y }
 }
 
 #[no_mangle]
@@ -125,7 +125,7 @@ pub extern "C" fn body_set_linear_velocity(world_handle : Handle, body_handle : 
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().set_linvel(vector![vel.x, vel.y], true);
+    body.unwrap().set_linvel(vector![vel.x, vel.y] * INV_SCALING_FACTOR.load(), true);
 }
 
 #[no_mangle]
@@ -150,7 +150,7 @@ pub extern "C" fn body_get_angular_velocity(world_handle : Handle, body_handle :
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get(rigid_body_handle);
     assert!(body.is_some());
-    return body.unwrap().angvel();
+    body.unwrap().angvel()
 }
 
 #[no_mangle]
@@ -246,7 +246,7 @@ pub extern "C" fn body_set_mass_properties(world_handle : Handle, body_handle : 
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
 	let body_ref = body.unwrap();
-	body_ref.set_additional_mass_properties(MassProperties::new(point![local_com.x, local_com.y], mass, inertia), wake_up);
+	body_ref.set_additional_mass_properties(MassProperties::new(point![local_com.x, local_com.y] * INV_SCALING_FACTOR.load(), mass, inertia * INV_SCALING_FACTOR.load() * INV_SCALING_FACTOR.load()), wake_up);
     if force_update {
         body_ref.recompute_mass_properties_from_colliders(&physics_world.collider_set);
     }
@@ -259,7 +259,7 @@ pub extern "C" fn body_add_force(world_handle : Handle, body_handle : Handle, fo
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().add_force(vector!(force.x, force.y), true);
+    body.unwrap().add_force(vector!(force.x, force.y) * INV_SCALING_FACTOR.load(), true);
 }
 
 #[no_mangle]
@@ -269,10 +269,10 @@ pub extern "C" fn body_add_force_at_point(world_handle : Handle, body_handle : H
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    let mut local_point = point![point.x, point.y];
+    let mut local_point = point![point.x, point.y] * INV_SCALING_FACTOR.load();
     let body = body.unwrap();
     local_point += body.center_of_mass().coords;
-    body.add_force_at_point(vector!(force.x, force.y), local_point, true);
+    body.add_force_at_point(vector!(force.x, force.y) * INV_SCALING_FACTOR.load(), local_point, true);
 }
 
 #[no_mangle]
@@ -282,7 +282,7 @@ pub extern "C" fn body_add_torque(world_handle : Handle, body_handle : Handle, t
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().add_torque(torque, true);
+    body.unwrap().add_torque(torque * INV_SCALING_FACTOR.load() * INV_SCALING_FACTOR.load(), true);
 }
 
 #[no_mangle]
@@ -292,7 +292,7 @@ pub extern "C" fn body_apply_impulse(world_handle : Handle, body_handle : Handle
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().apply_impulse(vector!(impulse.x, impulse.y), true);
+    body.unwrap().apply_impulse(vector!(impulse.x, impulse.y) * INV_SCALING_FACTOR.load(), true);
 }
 
 #[no_mangle]
@@ -302,10 +302,10 @@ pub extern "C" fn body_apply_impulse_at_point(world_handle : Handle, body_handle
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    let mut local_point = point![point.x, point.y];
+    let mut local_point = point![point.x, point.y] * INV_SCALING_FACTOR.load();
     let body = body.unwrap();
     local_point += body.center_of_mass().coords;
-    body.apply_impulse_at_point(vector!(impulse.x, impulse.y), local_point, true);
+    body.apply_impulse_at_point(vector!(impulse.x, impulse.y) * INV_SCALING_FACTOR.load(), local_point, true);
 }
 
 #[no_mangle]
@@ -315,8 +315,8 @@ pub extern "C" fn body_get_constant_force(world_handle : Handle, body_handle : H
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    let constant_force = body.unwrap().user_force();
-    return Vector { x : constant_force.x, y : constant_force.y };
+    let constant_force = body.unwrap().user_force() * SCALING_FACTOR.load();
+    Vector { x : constant_force.x, y : constant_force.y }
 }
 
 #[no_mangle]
@@ -326,7 +326,7 @@ pub extern "C" fn body_get_constant_torque(world_handle : Handle, body_handle : 
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().user_torque()
+    body.unwrap().user_torque() * SCALING_FACTOR.load() * SCALING_FACTOR.load()
 }
 
 #[no_mangle]
@@ -336,7 +336,7 @@ pub extern "C" fn body_apply_torque_impulse(world_handle : Handle, body_handle :
     let rigid_body_handle = handle_to_rigid_body_handle(body_handle);
     let body = physics_world.rigid_body_set.get_mut(rigid_body_handle);
     assert!(body.is_some());
-    body.unwrap().apply_torque_impulse(torque_impulse, true);
+    body.unwrap().apply_torque_impulse(torque_impulse * INV_SCALING_FACTOR.load() * INV_SCALING_FACTOR.load(), true);
 }
 
 #[no_mangle]

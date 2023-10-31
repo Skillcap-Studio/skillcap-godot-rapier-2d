@@ -111,7 +111,7 @@ pub extern "C" fn collider_get_position(world_handle : Handle, handle : Handle) 
     let collider_handle = handle_to_collider_handle(handle);
     let collider = physics_world.collider_set.get(collider_handle);
     assert!(collider.is_some());
-    let collider_vector = collider.unwrap().translation();
+    let collider_vector = collider.unwrap().translation() * SCALING_FACTOR.load();
     return Vector { x : collider_vector.x, y : collider_vector.y };
 }
 
@@ -134,7 +134,7 @@ pub extern "C" fn collider_set_transform(world_handle : Handle, handle : Handle,
         let collider = physics_world.collider_set.get_mut(collider_handle);
         assert!(collider.is_some());
         let collider = collider.unwrap();
-        collider.set_position_wrt_parent(Isometry::new(vector![shape_info.position.x, shape_info.position.y], shape_info.rotation));
+        collider.set_position_wrt_parent(Isometry::new(vector![shape_info.position.x, shape_info.position.y] * INV_SCALING_FACTOR.load(), shape_info.rotation));
     }
     {
         let new_shape:SharedShape;

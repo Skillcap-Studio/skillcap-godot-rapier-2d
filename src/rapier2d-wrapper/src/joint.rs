@@ -9,14 +9,14 @@ pub extern "C" fn joint_create_revolute(world_handle : Handle, body_handle_1 : H
 	let physics_world = physics_engine.get_world(world_handle);
 
     let mut joint = RevoluteJointBuilder::new()
-    .local_anchor1(point!(anchor_1.x, anchor_1.y))
-    .local_anchor2(point!(anchor_2.x, anchor_2.y))
+    .local_anchor1(point!(anchor_1.x, anchor_1.y) * INV_SCALING_FACTOR.load())
+    .local_anchor2(point!(anchor_2.x, anchor_2.y) * INV_SCALING_FACTOR.load())
     .motor_model(MotorModel::AccelerationBased);
     if angular_limit_enabled {
         joint = joint.limits([angular_limit_lower, angular_limit_upper]);
     }
     if motor_enabled {
-        joint = joint.motor_velocity(motor_target_velocity, 0.0);
+        joint = joint.motor_velocity(motor_target_velocity * INV_SCALING_FACTOR.load(), 0.0);
     }
     
 	return physics_world.insert_joint(body_handle_1, body_handle_2, joint);
@@ -34,7 +34,7 @@ pub extern "C" fn joint_change_revolute_params(world_handle : Handle, joint_hand
     assert!(joint.is_some());
     let mut joint = joint.unwrap();
     if motor_enabled {
-        joint = joint.set_motor_velocity(motor_target_velocity, 0.0);
+        joint = joint.set_motor_velocity(motor_target_velocity * INV_SCALING_FACTOR.load(), 0.0);
     }
     if angular_limit_enabled {
         joint.set_limits([angular_limit_lower, angular_limit_upper]);
@@ -47,9 +47,9 @@ pub extern "C" fn joint_create_prismatic(world_handle : Handle, body_handle_1 : 
 	let physics_world = physics_engine.get_world(world_handle);
 
     let joint = PrismaticJointBuilder::new(UnitVector::new_normalize(vector![axis.x, axis.y]))
-    .local_anchor1(point!(anchor_1.x, anchor_1.y))
-    .local_anchor2(point!(anchor_2.x, anchor_2.y))
-	.limits([limits.x, limits.y]);
+    .local_anchor1(point!(anchor_1.x, anchor_1.y) * INV_SCALING_FACTOR.load())
+    .local_anchor2(point!(anchor_2.x, anchor_2.y) * INV_SCALING_FACTOR.load())
+	.limits([limits.x * INV_SCALING_FACTOR.load(), limits.y * INV_SCALING_FACTOR.load()]);
     
 	return physics_world.insert_joint(body_handle_1, body_handle_2, joint);
 }

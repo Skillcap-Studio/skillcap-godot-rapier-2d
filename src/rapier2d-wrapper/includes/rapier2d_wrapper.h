@@ -480,6 +480,8 @@ void world_set_contact_point_callback(Handle world_handle, ContactPointCallback 
 void world_set_modify_contacts_callback(Handle world_handle,
 		CollisionModifyContactsCallback callback);
 
+void world_set_scaling_factor(Real scale);
+
 void world_set_sensor_collision_filter_callback(Handle world_handle,
 		CollisionFilterCallback callback);
 

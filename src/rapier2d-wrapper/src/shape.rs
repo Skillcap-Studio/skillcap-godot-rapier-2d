@@ -8,7 +8,7 @@ pub fn point_array_to_vec(data : &Vector, data_count : usize) -> Vec::<Point::<R
     unsafe {
         let data_raw = std::slice::from_raw_parts(data, data_count);
         for point in data_raw {
-            vec.push(Point::<Real> { coords : vector![point.x, point.y] });
+            vec.push(Point::<Real> { coords : vector![point.x, point.y] } * INV_SCALING_FACTOR.load());
         }
     }
     return vec;
@@ -24,7 +24,7 @@ pub struct ShapeInfo {
 
 #[no_mangle]
 pub extern "C" fn shape_create_box(size : &Vector) -> Handle {
-	let shape = SharedShape::cuboid(0.5 * size.x, 0.5 * size.y);
+	let shape = SharedShape::cuboid(0.5 * size.x * INV_SCALING_FACTOR.load(), 0.5 * size.y * INV_SCALING_FACTOR.load());
     let mut physics_engine = SINGLETON.lock().unwrap();
 	return physics_engine.insert_shape(shape);
 }
@@ -38,13 +38,15 @@ pub extern "C" fn shape_create_halfspace(normal : &Vector) -> Handle {
 
 #[no_mangle]
 pub extern "C" fn shape_create_circle(radius : Real) -> Handle {
-	let shape = SharedShape::ball(radius);
+	let shape = SharedShape::ball(radius * INV_SCALING_FACTOR.load());
     let mut physics_engine = SINGLETON.lock().unwrap();
 	return physics_engine.insert_shape(shape);
 }
 
 #[no_mangle]
 pub extern "C" fn shape_create_capsule(half_height : Real, radius : Real) -> Handle {
+    let half_height = half_height * INV_SCALING_FACTOR.load();
+    let radius = radius * INV_SCALING_FACTOR.load();
 	let top_circle = SharedShape::ball(radius);
     let top_circle_position = Isometry::new(vector![0.0, -half_height], 0.0);
 	let bottom_circle = SharedShape::ball(radius);
