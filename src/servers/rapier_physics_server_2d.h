@@ -275,8 +275,10 @@ public:
 	virtual void _set_active(bool p_active) override;
 	virtual void _init() override;
 	virtual void _step(double p_step) override;
+	virtual void _space_step(const RID &p_space, double p_step) override;
 	virtual void _sync() override;
 	virtual void _flush_queries() override;
+	virtual void _space_flush_queries(const RID &p_space) override;
 	virtual void _end_sync() override;
 	virtual void _finish() override;
 

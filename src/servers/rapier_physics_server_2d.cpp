@@ -1200,6 +1200,17 @@ void RapierPhysicsServer2D::_step(double p_step) {
 	}
 }
 
+void RapierPhysicsServer2D::_space_step(const RID &p_space, double p_step) {
+	if (!active) {
+		return;
+	}
+
+	RapierSpace2D *space = space_owner.get_or_null(p_space);
+	ERR_FAIL_NULL(space);
+
+	space->step(p_step);
+}
+
 void RapierPhysicsServer2D::_sync() {
 	doing_sync = true;
 }
@@ -1255,6 +1266,21 @@ void RapierPhysicsServer2D::_flush_queries() {
 	// 	values.push_front("physics_2d");
 	// 	EngineDebugger::profiler_add_frame_data("servers", values);
 	// }
+}
+
+void RapierPhysicsServer2D::_space_flush_queries(const RID &p_space) {
+	if (!active) {
+		return;
+	}
+
+	flushing_queries = true;
+
+	RapierSpace2D *space = space_owner.get_or_null(p_space);
+	ERR_FAIL_NULL(space);
+
+	space->call_queries();
+
+	flushing_queries = false;
 }
 
 void RapierPhysicsServer2D::_end_sync() {
